@@ -1,0 +1,31 @@
+#!/usr/bin/tclsh
+#
+#    60-updates-available - Show available updates
+#    Copyright (C) 2017 Malin von Matern
+#
+#    Authors: Malin von Matern
+#
+
+# ---------
+# VARIABLES
+# ---------
+
+set updates(available) [catch {exec aptitude -F%p --disable-columns search ~U | grep -c .} result]
+if {$updates(available) == 0} {
+    set updates(available) [exec -- aptitude -F%p --disable-columns search ~U | grep -c .]
+} else {
+    set updates(available) 0
+}
+set updates(security) [catch {exec apt-get upgrade -s | grep -i security | grep Inst | grep -c .} result]
+if {$updates(security) == 0} {
+    set updates(security) [exec -- apt-get upgrade -s | grep -i security | grep Inst | grep -c .]
+} else {
+    set updates(security) 0
+}
+
+# ------------
+# PRINT OUTPUT
+# ------------
+
+puts "    \033\[1mUPDATES.......:\033\[0m $updates(available) available ($updates(security) security)"
+puts "    "

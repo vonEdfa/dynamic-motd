@@ -1,0 +1,40 @@
+#!/usr/bin/tclsh
+#
+#    90-reboot-reqiured - Checks if system needs a reboot (kernel update pending)
+#    Copyright (C) 2017 Malin von Matern
+#
+#    Authors: Malin von Matern
+#
+
+# ------------------------
+# VARIABLES & PRINT OUTPUT
+# ------------------------
+
+# CHECK SERVICES
+set err [catch {exec needrestart -b | grep SVC | awk {{$1 = ""}1} | sed {s/^[ ]//} | sed {s/[ ]/-/} | sed {s/ /\n                    - /}} update(services)]
+if {$err == 0} {
+    foreach service $update(services) {
+        append list {} "\n                    - "
+        append list {} $service
+    }
+    set update(services) $list
+    puts "    \033\[1mSERVICES......:\033\[0m These services are in need of a restart:$update(services)"
+    puts "    "
+}
+
+# CHECK KERNEL STATUS
+# update(kernel) values:
+# 0 : Unknown or failed to detect.
+# 1 : No pending update.
+# 2 : ABI compatible upgrade pending.
+# 3 : Version upgrade pending.
+set err [catch {exec needrestart -b | grep KSTA | awk {{print $2}}} update(kernel)]
+if {$err == 0} {
+    if {$update(kernel) > 1} {
+        puts "    \033\[1;01;30m///\033\[0;1;01;33m ATTENTION \033\[0;1;01;30m>>>>>>>>>>>>>>>>>>>>>> ///\033\[0m"
+        puts "    \033\[1;01;30m//\033\[0m  SYSTEM RESTART REQURIED!!\t  \033\[1;01;30m//\033\[0m"
+        puts "    \033\[1;01;30m//\033\[0m  Kernel update pending!\t\t  \033\[1;01;30m//\033\[0m"
+        puts "    \033\[1;01;30m/// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ///\033\[0m"
+        puts "    "
+    }
+}

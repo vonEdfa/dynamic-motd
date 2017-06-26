@@ -1,0 +1,177 @@
+#!/usr/bin/tclsh
+#
+#    10-sysinfo - Generate system information
+#    Copyright (C) 2017 Malin von Matern
+#
+#    Authors: Malin von Matern
+#
+package require Tclx
+
+# ---------
+# FUNCTIONS
+# ---------
+
+# ?set - Check if var 'v_name' exists and returns 'val' if it doesn't
+# v_name : Name if var to check.
+# val    : Value to use if v_name isn't set.
+proc ?set {v_name val} {
+    upvar $v_name v
+    if {![info exists v]} {
+        return $val
+    }
+    return $v
+}
+
+# nth - Copies the string and returns it with all numbers in a "th" state
+# string                  : A string of any length
+# ignore_years (optional) : Ignore year-like numbers (default 0)
+proc nth {string {ignore_years 0}} {
+    foreach w $string {
+        set do 1
+	if {$ignore_years != 0 & [string length $w] == 4} {
+            set do 0
+        }
+        if {[string is integer -strict $w] & $do} {
+            set n [exec -- echo $w | sed {s/^[0-9]*\([0-9]$\)/\1/}]
+            if {$n == 1} {
+                append w {st}
+            } elseif {$n == 2} {
+                append w {nd}
+            } elseif {$n == 3} {
+                append w {rd}
+            } else {
+                append w {th}
+            }
+        }
+        append new $w { }
+    }
+    return $new
+}
+
+# --------------
+# SECTION HEADER
+# --------------
+
+set date(now) [exec -- date {+%a %b %-d %Y %H:%M:%S %Z}]
+set date(now) [nth ${date(now)} 1]
+
+puts "    "
+puts "    \033\[1mSYSTEM INFORMATION\033\[0m as of $date(now)"
+
+# ---------------
+# SECTION CONTENT
+# ---------------
+
+# Set up threshold for generating sysinfo
+set cores [exec -- grep -c ^processor /proc/cpuinfo 2>/dev/null]
+set threshold [?set cores 1].0
+
+if {[exec -- echo "\"cut -f1 -d ' ' /proc/loadavg\""] < $threshold} {
+    # Run if within threshold
+    
+    # ---------
+    # VARIABLES
+    # ---------
+    
+    # CURRENT USER
+    set user(err) [catch {id process parent} ppid]
+    set user(err) [catch {exec cat /proc/$ppid/status | grep PPid | awk {{print $2}}} ppid1]
+    set user(err) [catch {exec cat /proc/$ppid1/status | grep PPid | awk {{print $2}}} ppid2]
+    set user(err) [catch {exec ps -x | grep $ppid2 | awk {{print $6}} | tr {\n} { } | sed {s/\(@pts\/.\|[0-9]*\| \)//g}} user(name)]
+    if {[string equal $user(name) {}]} {
+        set err [catch {exec echo $env(USER)} user(name)]
+        if {$err != 0} {
+            set user(err) 1
+        }
+    }
+    
+    # UPTIME
+    set uptime(days) [catch {exec uptime | grep day} result]
+    if {$uptime(days) == 0} {
+        set uptime(days) [exec -- uptime | awk {{print $3 " " $4}} | sed "s/,//"]
+        append uptime(days) { }
+    } else {
+        set uptime(days) {}
+    }
+    set uptime(hours) [catch {exec uptime -p | grep hour} result]
+    if {$uptime(hours) == 0} {
+        set uptime(hours) [exec -- uptime -p | sed -r {s/.*[^0-9]([0-9]?[0-9] hour[a-z]?).*/\1/}]
+        append uptime(hours) { }
+    } else {
+        set uptime(hours) {}
+    }
+    set uptime(minutes) [catch {exec uptime -p | grep minute} result]
+    if {$uptime(minutes) == 0} {
+        set uptime(minutes) [exec -- uptime -p | sed -r {s/.*[^0-9]([0-9]?[0-9] minute[a-z]?).*/\1/}]
+    } else {
+        set uptime(minutes) {}
+    }
+    
+    # SYSTEM LOAD
+    set sysload(cpu) [exec -- top -bn1 | grep "Cpu(s)" | sed {s/.*, *\([0-9.]*\)%* id.*/\1/} | awk {{print 100 - $1"%"}}]
+    set sysload(average) [exec -- uptime | sed -s {s/.*[load average:]\(.* .* .*\)$/\1/}]
+    
+    # PROCESSES
+    set processes(all) [exec -- top -bn1 | grep "Tasks" | sed {s/\([0-9]*\)%* total.*/\1/} | awk {{print $2}}]
+    set err [catch {exec -- ps aux | grep -c -v {\[.*\]$}} processes(tasks)]
+    if {$err == 0} {
+        append processes(tasks) { tasks}
+    }
+    set err [catch {exec -- ps aux | grep -c {\[.*\]$}} processes(kernel)]
+    set processes(kernel) [linsert $processes(kernel) 0 and ]
+    if {$err == 0} {
+        append processes(kernel) { kthreads}
+    }
+    if {$user(err) == 0} {
+        set processes(user) { (}
+        set err [catch {exec -- top -bn1 | grep -c $user(name)} you]
+        if {$err != 0} {
+            set you 0
+        }
+        append processes(user) $you { are yours)}
+    } else {
+        set processes(user) {}
+    }
+    
+    # TEMPERATURES
+    set temp(cpu) [format %.f [exec -- sensors | grep CPUTIN | awk {{print $2}} | sed {s/+//} | sed {s/°C//}]]
+    set temp(sys) [format %.f [exec -- sensors | grep SYSTIN | awk {{print $2}} | sed {s/+//} | sed {s/°C//}]]
+    set temp(1) [format %.f [exec -- sensors | grep temp1 | awk {{print $2}} | sed {s/+//} | sed {s/°C//}]]
+    set temp(2) [format %.f [exec -- sensors | grep temp2 | awk {{print $2}} | sed {s/+//} | sed {s/°C//}]]
+    
+    # MEMORY USAGE
+    set memory(use) [format %.1f [exec -- free | grep Mem | awk {{print $3/$2 * 100}}]]
+    set memory(swp) [format %.1f [exec -- free | grep Swap | awk {{print $3/$2 * 100}}]]
+    
+    # DISC USAGE
+    set percent(root) [exec -- df -h --output=pcent / | perl -p -000 -e {s/(Use%\n[^0-9]*)//} | sed {s/%//}]
+    set size(root) [exec -- df -h --output=size / | perl -p -000 -e {s/ Size\n //} | sed {s/\(.$\)/ \1B/}]
+    set percent(var) [exec -- df -h --output=pcent /var | perl -p -000 -e {s/(Use%\n[^0-9]*)//} | sed {s/%//}]
+    set size(var) [exec -- df -h --output=size /var | perl -p -000 -e {s/ Size\n //} | sed {s/\(.$\)/ \1B/}]
+    set percent(home) [exec -- df -h --output=pcent /home | perl -p -000 -e {s/(Use%\n[^0-9]*)//} | sed {s/%//}]
+    set size(home) [exec -- df -h --output=size /home | perl -p -000 -e {s/ Size\n //} | sed {s/\(.$\)/ \1B/}]
+    
+    # ------------
+    # PRINT OUTPUT
+    # ------------
+    
+    puts "    "
+    puts "    \033\[1mUPTIME........:\033\[0m $uptime(days)$uptime(hours)$uptime(minutes)"
+    puts "    \033\[1mSYSTEM LOAD...:\033\[0m $sysload(cpu)  ($sysload(average))"
+    puts "    \033\[1mPROCESSES.....:\033\[0m $processes(tasks)$processes(user) $processes(kernel)"
+    puts "    \033\[1mTEMPERATURES..:\033\[0m CPU: $temp(cpu)°C  SYS: $temp(sys)°C  M/B: $temp(1)°C/$temp(2)°C"
+    puts "    "
+    puts "    \033\[1mMEMORY USAGE..:\033\[0m $memory(use)%  Swap: $memory(swp)%"
+    puts "    \033\[1mROOT USAGE....:\033\[0m $percent(root)% of $size(root)"
+    puts "    \033\[1mVAR USAGE.....:\033\[0m $percent(var)% of $size(var)"
+    puts "    \033\[1mHOME USAGE....:\033\[0m $percent(home)% of $size(home)"
+    
+} else {
+    # Output error message if we're above threshold
+    
+    puts "    "
+    puts "    \033\[1;01;30m///\033\[0;1;01;31m WARNING \033\[0;1;01;30m>>>>>>>>>>>>>>>>>>>>>>>> ///\033\[0m"
+    puts "    \033\[1;01;30m//\033\[0m  System information disabled due\t  \033\[1;01;30m//\033\[0m"
+    puts "    \033\[1;01;30m//\033\[0m  to load higher than $threshold.\t  \033\[1;01;30m//\033\[0m"
+    puts "    \033\[1;01;30m/// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ///\033\[0m"
+}

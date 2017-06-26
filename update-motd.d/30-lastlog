@@ -1,0 +1,148 @@
+#!/usr/bin/tclsh
+#
+#    30-lastlog - Show users online and the current user's lastlog
+#    Copyright (C) 2017 Malin von Matern
+#
+#    Authors: Malin von Matern
+#
+package require Tclx
+
+# ---------
+# FUNCTIONS
+# ---------
+
+# ?set - Check if var 'v_name' exists and returns 'val' if it doesn't
+# v_name : Name if var to check.
+# val    : Value to use if v_name isn't set.
+proc ?set {v_name val} {
+    upvar $v_name v
+    if {![info exists v]} {
+        return $val
+    }
+    return $v
+}
+
+# nth - Copies the string and returns it with all numbers in a "th" state
+# string                  : A string of any length
+# ignore_years (optional) : Ignore year-like numbers (default 0)
+proc nth {string {ignore_years 0}} {
+    set ignore_years [?set ignore_years 0]
+    foreach w $string {
+        set do 1
+        if {$ignore_years != 0 & [string length $w] == 4} {
+            set do 0
+        }
+        if {[string is integer -strict $w] & $do} {
+            set n [exec -- echo $w | sed {s/^[0-9]*\([0-9]$\)/\1/}]
+            if {$n == 1} {
+                append w {st}
+            } elseif {$n == 2} {
+                append w {nd}
+            } elseif {$n == 3} {
+                append w {rd}
+            } else {
+                append w {th}
+            }
+        }
+        append new $w { }
+    }
+    return $new
+}
+
+# pretty_date - Makes dates output in a pretty way
+# d : needs a date of at least 
+proc pretty_date {d} {
+    set err [catch {exec -- date {+%a %b %-d %Y %T %z} --date=${d}} d]
+    if {$err != 0} {
+        return "Error: invalid date input. (${err} ${d})"
+    }
+    set date(today) [exec -- date {+%b %-d %Y %z}]
+    set date(yesterday) [exec -- date {+%b %-d %Y %z} | awk {{$2 = $2 - 1; print $0}}]
+    set short [exec -- echo ${d} | awk {{print $2 " " $3 " " $4 " " $6}}]
+    if {[string equal $short $date(today)]} {
+        return [exec -- date {+Today, %B %-d at %R %Z} --date=${d}]
+    } elseif {[string equal $short $date(yesterday)]} {
+        return [exec date {+Yesterday, %B %-d at %R %Z} --date=${d}]
+    } elseif {[string equal [lindex $d 3] [lindex $date(today) 2]]} {
+        return [exec date {+%A, %B %-d at %R %Z} --date=${d}]
+    } else {
+        return [exec date {+%B %-d %Y at %R %Z} --date=${d}]
+    }
+}
+
+# ---------
+# VARIABLES
+# ---------
+
+# CURRENT USER
+set user(err) [catch {set foo $env(USER)} user(name)]
+if {$user(err) != 0} {
+    set user(err) [catch {id process parent} ppid]
+    set user(err) [catch {exec cat /proc/$ppid/status | grep PPid | awk {{print $2}}} ppid1]
+    set user(err) [catch {exec cat /proc/$ppid1/status | grep PPid | awk {{print $2}}} ppid2]
+    set user(err) [catch {exec ps -x | grep $ppid2 | awk {{print $6}} | tr {\n} { } | sed {s/\(@pts\/.\|[0-9]*\| \)//g}} user(name)]
+    if {[string equal $user(name) {}] & $user(err) != 0 || $user(name) != [exec -- echo $user(name) | sed {s/^[^a-z]*//}]} {
+        set user(err) 1
+    }
+}
+
+# USERS ONLINE
+set err [catch {exec -- w -hs | grep -c .} online]
+if {$err == 0} {
+    set online [expr {$online+1}]
+} else {
+    set online 1
+}
+set err [catch {exec -- w -hs | grep -c $user(name)} you]
+if {$err == 0} {
+    if {$you == [expr {$online-1}]} {
+        set you [expr {$you+1}]
+    }
+} else {
+    set you 1
+}
+set others [expr {$online-$you}]
+if {$online == 1 || $user(err) == 0 & $others == 0} {
+    append online { (you)}
+} elseif {$user(err) == 0 & $online > 1} {
+    set others [exec -- w -hs | awk {{print $1}}]
+    foreach u $others {
+        if {$u != $user(name)} {
+            set uonline($u) [?set uonline($u) 0]
+            set uonline($u) [expr {$uonline($u)+1}]
+        }
+    }
+    set others [llength [array names uonline]]
+    if {$others == 1} {
+        append others { other}
+    } else {
+        append others { others}
+    }
+    append online { (you and } ${others} {)}
+}
+
+# LAST LOGIN
+if {$user(err) == 0} {
+    set lastlog(time) [exec -- lastlog | grep $user(name) | awk {{print $4 " " $5 " " $6 " " $9 " " $7 " " $8}}]
+    set lastlog(time) [pretty_date ${lastlog(time)}]
+    set lastlog(time) [nth ${lastlog(time)} 1]
+#    set lastlog(from) [exec -- lastlog | grep $user(name) | awk {{print $3}}]
+    set lastlog(port) [exec -- lastlog | grep $user(name) | awk {{print $2}}]
+    if {[exec echo $lastlog(port) | sed {s/[0-9]$//}] != {tty}} {
+        set lastlog(from) [exec -- last -w $user(name) | awk {NR <2 {print $3}}]
+    } else {
+        set lastlog(from) $lastlog(port)
+    }
+} else {
+    set lastlog(time) {ERROR: Failed to find current user}
+    set lastlog(from) {ERROR: Failed to find current user}
+}
+
+# ------------
+# PRINT OUTPUT
+# ------------
+
+puts "    "
+puts "    \033\[1mUSERS ONLINE..:\033\[0m $online"
+puts "    \033\[1mLAST LOGIN....:\033\[0m $lastlog(time)"
+puts "    \033\[1mFROM..........:\033\[0m $lastlog(from)"

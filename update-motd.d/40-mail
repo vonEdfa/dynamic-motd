@@ -1,0 +1,51 @@
+#!/usr/bin/tclsh
+#
+#    40-mail - Display mail status
+#    Copyright (C) 2017 Malin von Matern
+#
+#    Authors: Malin von Matern
+#
+package require Tclx
+
+# ---------
+# VARIABLES
+# ---------
+
+# CURRENT USER
+set user(err) [catch {id process parent} ppid]
+set user(err) [catch {exec cat /proc/$ppid/status | grep PPid | awk {{print $2}}} ppid1]
+set user(err) [catch {exec cat /proc/$ppid1/status | grep PPid | awk {{print $2}}} ppid2]
+set user(err) [catch {exec ps -x | grep $ppid2 | awk {{print $6}} | tr {\n} { } | sed {s/\(@pts\/.\|[0-9]*\| \)//g}} user(name)]
+if {[string equal $user(name) {}]} {
+    set err [catch {exec echo $env(USER)} user(name)]
+    if {$err != 0} {
+        set user(err) 1
+    }
+}
+
+# MAIL DIR
+if {$user(err) == 0} {
+    set mailbox /var/mail/$user(name)
+
+    # MAILBOX
+    set mail(new) [catch {exec grep -c Subject $mailbox} result]
+    if {$mail(new) == 0} {
+        set mail(count) [exec -- grep -c Subject $mailbox]
+        if {$mail(count) == 1} {
+            set mail(new) "You have $mail(count) new message"
+        } else {
+            set mail(new) "You have $mail(count) new messages"
+        }
+    } else {
+        set mail(new) "No mail"
+    }
+} else {
+    set mail(new) {ERROR: Failed to find current user}
+}
+
+# ------------
+# PRINT OUTPUT
+# ------------
+
+puts "    "
+puts "    \033\[1mMAILBOX.......:\033\[0m $mail(new)"
