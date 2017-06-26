@@ -5,7 +5,7 @@ A dynamic MOTD built in tclsh.
 
 Currently up and running on my Debian "jessie" server and should™ work on all similar dists.
 
-### Prequesities
+### Prerequisite
 The scripts expect you to have these commands/apps installed and available:
 - tclsh
 - tclx (tcl package)
