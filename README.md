@@ -3,7 +3,7 @@ A dynamic MOTD built in tclsh
 
 *Why tcl? Because I couldn't get tput colors to work through pam.*
 
-Currently up and running on my Debian "jessie" server and should*(tm)* work on all similar dists.
+Currently up and running on my Debian "jessie" server and should *(tm)* work on all similar dists.
 
 ### Prequesities
 The scripts expect you to have these commands/apps installed and available:
