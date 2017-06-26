@@ -31,4 +31,4 @@ The scripts expect you to have these commands/apps installed and available:
 - apt-get
 - needrestart
 
-I also suggest you enable apt-get to update it's list with cron.daily. Otherwise you can uncomment the script in '50-check-updates' for a cheeky workaround. :)
+I also suggest you enable apt-get to update it's list with cron.hourly (or cron.daily). Otherwise you can uncomment the script in '50-check-updates' for a cheeky workaround. :)
