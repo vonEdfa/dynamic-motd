@@ -37,5 +37,4 @@ I also suggest you enable apt-get to update it's list with cron.daily. Otherwise
 Renders fine in both PuTTY and a regular linux terminal:
 
 ![Screenshot from PuTTY](https://github.com/vonEdfa/dynamic-motd/raw/master/_img/example-putty.jpg "Putty")
-
 ![Screenshot from an Ubuntu terminal](https://github.com/vonEdfa/dynamic-motd/raw/master/_img/example-ubuntuterm.jpg "terminal")
