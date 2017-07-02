@@ -50,7 +50,7 @@ proc nth {string {ignore_years 0}} {
 }
 
 # pretty_date - Makes dates output in a pretty way
-# d : needs a date of at least 
+# d : needs a date written in a format 'date' can understand
 proc pretty_date {d} {
     set err [catch {exec -- date {+%a %b %-d %Y %T %z} --date=${d}} d]
     if {$err != 0} {
@@ -124,13 +124,37 @@ if {$online == 1 || $user(err) == 0 & $others == 0} {
 # LAST LOGIN
 if {$user(err) == 0} {
     set lastlog(time) [exec -- lastlog | grep $user(name) | awk {{print $4 " " $5 " " $6 " " $9 " " $7 " " $8}}]
+    set lastlog(num) [exec -- date +%Y%m%d%H%M --date=$lastlog(time)]
     set lastlog(time) [pretty_date ${lastlog(time)}]
     set lastlog(time) [nth ${lastlog(time)} 1]
-#    set lastlog(from) [exec -- lastlog | grep $user(name) | awk {{print $3}}]
     set lastlog(port) [exec -- lastlog | grep $user(name) | awk {{print $2}}]
     if {[exec echo $lastlog(port) | sed {s/[0-9]$//}] != {tty}} {
-        set lastlog(from) [exec -- last -w $user(name) | awk {NR <2 {print $3}}]
+        # If not from tty, display dns or ip.
+        # lastlog's "From" output gets trunkated. Let's use last where possible.
+        set lastlog(rotate) [exec -- last | tail --lines=1 | sed {s/wtmp begins //}]
+        set lastlog(rotate) [exec -- date +%Y%m%d%H%M --date=$lastlog(rotate)]
+        set lastlog(oldexist) [catch {exec last --file /var/log/wtmp.1 | tail --lines=1 | sed {s/wtmp.1 begins //}} lastlog(rotate1)]
+        set lastlog(oldexist) [expr !${lastlog(oldexist)}]
+        set lastlog(logexist) 0
+        if {$lastlog(oldexist)} {
+            # Check if wtmp.1 cointains the data we need
+            set lastlog(rotate1) [exec -- date +%Y%m%d%H%M --date=$lastlog(rotate1)]
+            if {$lastlog(rotate1) < $lastlog(num)} {
+                set lastlog(logexist) 1
+            }
+        }
+        if {$lastlog(rotate) > $lastlog(num) && $lastlog(oldexist) && $lastlog(logexist)} {
+            # If logrotate has run since last login & the .1 file still contains the info, run that.
+            set lastlog(from) [exec -- last -dw $user(name) --file /var/log/wtmp.1 | awk {NR <2 {print $3}}]
+        } elseif {$lastlog(rotate) < $lastlog(num)} {
+            # If logrotate hasn't run sunce last login, use the default file.
+            set lastlog(from) [exec -- last -dw $user(name) | awk {NR <2 {print $3}}]
+        } else {
+            # If the .1 file is too new to display the correct data then fall back to the trunkated output lastlog has.
+            set lastlog(from) [exec -- lastlog | grep $user(name) | awk {{print $3}}]
+        }
     } else {
+        # If the user visited from tty, let's just display that.
         set lastlog(from) $lastlog(port)
     }
 } else {
