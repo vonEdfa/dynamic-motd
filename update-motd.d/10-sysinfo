@@ -106,6 +106,9 @@ if {[exec -- echo "\"cut -f1 -d ' ' /proc/loadavg\""] < $threshold} {
     } else {
         set uptime(minutes) {}
     }
+    if {$uptime(days) == {} && $uptime(hours) == {} && $uptime(minutes) == {}} {
+        set uptime(minutes) {<1 minute}
+    }
     
     # SYSTEM LOAD
     set sysload(cpu) [exec -- top -bn1 | grep "Cpu(s)" | sed {s/.*, *\([0-9.]*\)%* id.*/\1/} | awk {{print 100 - $1"%"}}]
