@@ -159,15 +159,15 @@ if {[exec -- echo "\"cut -f1 -d ' ' /proc/loadavg\""] < $threshold} {
     # ------------
     
     puts "    "
-    puts "    \033\[1mUPTIME........:\033\[0m $uptime(days)$uptime(hours)$uptime(minutes)"
-    puts "    \033\[1mSYSTEM LOAD...:\033\[0m $sysload(cpu)  ($sysload(average))"
-    puts "    \033\[1mPROCESSES.....:\033\[0m $processes(tasks)$processes(user) $processes(kernel)"
-    puts "    \033\[1mTEMPERATURES..:\033\[0m CPU: $temp(cpu)°C  SYS: $temp(sys)°C  M/B: $temp(1)°C/$temp(2)°C"
+    puts "    \033\[01mUPTIME........:\033\[0m $uptime(days)$uptime(hours)$uptime(minutes)"
+    puts "    \033\[01mSYSTEM LOAD...:\033\[0m $sysload(cpu)  ($sysload(average))"
+    puts "    \033\[01mPROCESSES.....:\033\[0m $processes(tasks)$processes(user) $processes(kernel)"
+    puts "    \033\[01mTEMPERATURES..:\033\[0m CPU: $temp(cpu)°C  SYS: $temp(sys)°C  M/B: $temp(1)°C/$temp(2)°C"
     puts "    "
-    puts "    \033\[1mMEMORY USAGE..:\033\[0m $memory(use)%  Swap: $memory(swp)%"
-    puts "    \033\[1mROOT USAGE....:\033\[0m $percent(root)% of $size(root)"
-    puts "    \033\[1mVAR USAGE.....:\033\[0m $percent(var)% of $size(var)"
-    puts "    \033\[1mHOME USAGE....:\033\[0m $percent(home)% of $size(home)"
+    puts "    \033\[01mMEMORY USAGE..:\033\[0m $memory(use)%  Swap: $memory(swp)%"
+    puts "    \033\[01mROOT USAGE....:\033\[0m $percent(root)% of $size(root)"
+    puts "    \033\[01mVAR USAGE.....:\033\[0m $percent(var)% of $size(var)"
+    puts "    \033\[01mHOME USAGE....:\033\[0m $percent(home)% of $size(home)"
     
 } else {
     # Output error message if we're above threshold
