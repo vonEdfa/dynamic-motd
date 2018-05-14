@@ -153,6 +153,10 @@ if {[exec -- echo "\"cut -f1 -d ' ' /proc/loadavg\""] < $threshold} {
     set size(var) [exec -- df -h --output=size /var | perl -p -000 -e {s/ Size\n //} | sed {s/\(.$\)/ \1B/}]
     set percent(home) [exec -- df -h --output=pcent /home | perl -p -000 -e {s/(Use%\n[^0-9]*)//} | sed {s/%//}]
     set size(home) [exec -- df -h --output=size /home | perl -p -000 -e {s/ Size\n //} | sed {s/\(.$\)/ \1B/}]
+    set percent(backup) [exec -- df -h --output=pcent /media/backup | perl -p -000 -e {s/(Use%\n[^0-9]*)//} | sed {s/%//}]
+    set size(backup) [exec -- df -h --output=size /media/backup | perl -p -000 -e {s/ Size\n //} | sed {s/\(.$\)/ \1B/}]
+    set percent(plex) [exec -- df -h --output=pcent /media/plex | perl -p -000 -e {s/(Use%\n[^0-9]*)//} | sed {s/%//}]
+    set size(plex) [exec -- df -h --output=size /media/plex | perl -p -000 -e {s/ Size\n//} | sed {s/\(.$\)/ \1B/}]
     
     # ------------
     # PRINT OUTPUT
@@ -168,6 +172,8 @@ if {[exec -- echo "\"cut -f1 -d ' ' /proc/loadavg\""] < $threshold} {
     puts "    \033\[01mROOT USAGE....:\033\[0m $percent(root)% of $size(root)"
     puts "    \033\[01mVAR USAGE.....:\033\[0m $percent(var)% of $size(var)"
     puts "    \033\[01mHOME USAGE....:\033\[0m $percent(home)% of $size(home)"
+    puts "    \033\[01mBACKUP USAGE..:\033\[0m $percent(backup)% of $size(backup)"
+    puts "    \033\[01mPLEX USAGE....:\033\[0m $percent(plex)% of $size(plex)"
     
 } else {
     # Output error message if we're above threshold
